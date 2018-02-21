@@ -11,7 +11,7 @@ library('corrplot') # visualization
 library('lubridate') # date and time
 library("purrr")# data manipulation
 library('stringr')
-
+library(cowplot)
 
 #1.1- Reading in the data files
 
@@ -32,89 +32,6 @@ sum(duplicated(CarPrice$car_ID)) #No duplicate IDs
 
 colSums(is.na(CarPrice)) #No Missing data
 
-##Identifying the dependent or target variable- Price
-################################################################
-
-### Data Preparation & Exploratory Data Analysis
-
-# Understanding the structure of the collated file
-str(telecom) #7043 obs. of 21 variables;
-
-# tenure, MonthlyCharges, TotalCharges are continuous
-# SeniorCitizen need to be changed from integer to categorical
-
-
-# Barcharts for categorical features with stacked telecom information
-bar_theme1<- theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5), 
-                   legend.position="none")
-
-
-
-plot_grid(ggplot(telecom, aes(x=PhoneService,fill=Churn))+ geom_bar(), 
-          ggplot(telecom, aes(x=Contract,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=PaperlessBilling,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=PaymentMethod,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=gender,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=factor(SeniorCitizen),fill=Churn))+ geom_bar()+bar_theme1,
-          align = "h")   
-
-plot_grid(ggplot(telecom, aes(x=Partner,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=Dependents,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=MultipleLines,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=InternetService,fill=Churn))+ geom_bar()+bar_theme1,
-          align = "h") 
-
-plot_grid(ggplot(telecom, aes(x=OnlineSecurity,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=OnlineBackup,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=DeviceProtection,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=TechSupport,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=StreamingTV,fill=Churn))+ geom_bar()+bar_theme1,
-          ggplot(telecom, aes(x=StreamingMovies,fill=Churn))+ geom_bar()+bar_theme1,
-          align = "h") 
-
-#reveals strong contrast for telecom wrt Contract,InternetServices, (not availing) OnlineSecurity and Techsupport and PaymentMethod,
-#moderate wrt whether SeniorCitizen, having partner, OnlineBackup and DeviceProtection
-
-# Histogram and Boxplots for numeric variables 
-box_theme<- theme(axis.line=element_blank(),axis.title=element_blank(), 
-                  axis.ticks=element_blank(), axis.text=element_blank())
-
-box_theme_y<- theme(axis.line.y=element_blank(),axis.title.y=element_blank(), 
-                    axis.ticks.y=element_blank(), axis.text.y=element_blank(),
-                    legend.position="none")
-
-plot_grid(ggplot(telecom, aes(tenure))+ geom_histogram(binwidth = 10),
-          ggplot(telecom, aes(x="",y=tenure))+ geom_boxplot(width=0.1)+coord_flip()+box_theme, 
-          align = "v",ncol = 1)
-
-plot_grid(ggplot(telecom, aes(MonthlyCharges))+ geom_histogram(binwidth = 20),
-          ggplot(telecom, aes(x="",y=MonthlyCharges))+ geom_boxplot(width=0.1)+coord_flip()+box_theme, 
-          align = "v",ncol = 1)
-
-plot_grid(ggplot(telecom, aes(TotalCharges))+ geom_histogram(),
-          ggplot(telecom, aes(x="",y=TotalCharges))+ geom_boxplot(width=0.1)+coord_flip()+box_theme, 
-          align = "v",ncol = 1) 
-
-#No outliers in numeric variables
-
-# Boxplots of numeric variables relative to telecom status
-plot_grid(ggplot(telecom, aes(x=Churn,y=tenure, fill=Churn))+ geom_boxplot(width=0.2)+ 
-            coord_flip() +theme(legend.position="none"),
-          ggplot(telecom, aes(x=Churn,y=MonthlyCharges, fill=Churn))+ geom_boxplot(width=0.2)+
-            coord_flip() + box_theme_y,
-          ggplot(telecom, aes(x=Churn,y=TotalCharges, fill=Churn))+ geom_boxplot(width=0.2)+
-            coord_flip() + box_theme_y,
-          align = "v",nrow = 1)
-
-# Shorter tenure sees more telecom
-
-# Correlation between numeric variables
-library(GGally)
-ggpairs(telecom[, c("tenure", "MonthlyCharges", "TotalCharges")])
-
-#As expected, tenure and TotalCharges are highly correlated (corr 0.83)
-
-################################################################
 #1.2- DATA PREPARATION
 
 #We will extract the car brand from car name variable
@@ -136,7 +53,154 @@ carprice_chr <- CarPrice[, c(2:9, 15,16,18)]
 
 # converting categorical attributes to factor
 carprice_fact<- data.frame(sapply(carprice_chr, function(x) factor(x)))
-str(carprice_fact) #we see that carname has 22 levels
+
+
+#creating a dataframe of numeric variables
+carprice_num <- CarPrice[, c(10:14, 17,19:26)]
+carprice_numeric<- data.frame(sapply(carprice_num, function(x) as.numeric(x)))
+
+
+carprice_final <- cbind(carprice_fact, carprice_numeric)
+
+
+str(carprice_final)
+#we see that there are 11 categorical variables
+#carname has 22 levels
+#14 numeric variables
+#carid is not taken into consideration
+
+##Identifying the dependent or target variable- Price
+
+################################################################
+
+#1.3- Exploratory Data Analysis
+
+
+
+theme1<- theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5), 
+                   legend.position="none")
+
+
+#Barcharts of all categorical variables w.r.t price
+plot_grid(ggplot(carprice_final, aes(x=symboling,y = price))+ geom_bar(stat = 'identity'), 
+          ggplot(carprice_final, aes(x=CarName,y = price))+ geom_bar(stat = 'identity')+theme1,
+          ggplot(carprice_final, aes(x=fueltype,y = price))+ geom_bar(stat = 'identity')+theme1,
+          ggplot(carprice_final, aes(x=aspiration,y = price))+ geom_bar(stat = 'identity')+theme1,
+          ggplot(carprice_final, aes(x=doornumber,y = price))+ geom_bar(stat = 'identity')+theme1,
+          ggplot(carprice_final, aes(x=carbody,y = price))+ geom_bar(stat = 'identity')+theme1,
+          align = "h")   
+#We find:
+#symbolic rating of '0' has more price
+#Brand name of the car does affects the price
+
+plot_grid(ggplot(carprice_final, aes(x=drivewheel,y = price))+ geom_bar(stat = 'identity')+theme1,
+          ggplot(carprice_final, aes(x=enginelocation,y = price))+ geom_bar(stat = 'identity')+theme1,
+          ggplot(carprice_final, aes(x=enginetype,y = price))+ geom_bar(stat = 'identity')+theme1,
+          ggplot(carprice_final, aes(x=cylindernumber,y = price))+ geom_bar(stat = 'identity')+theme1,
+          ggplot(carprice_final, aes(x=fuelsystem,y = price))+ geom_bar(stat = 'identity')+theme1,
+          align = "h")  
+
+#Box plot of all categorical variables w.r.t price
+plot_grid(ggplot(carprice_final, aes(x=symboling,y = price))+ geom_boxplot(), 
+          ggplot(carprice_final, aes(x=CarName,y = price))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x=fueltype,y = price))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x=aspiration,y = price))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x=doornumber,y = price))+ geom_boxplot()+theme1,
+          align = "h") 
+#We find:
+#outliers in symboling rating of 0,1,2,3 
+#few car brands have high outliers such as toyota, audi, porsche
+#outliers in fueltype 'gas', aspiration type'std', doornumber
+
+
+
+plot_grid(ggplot(carprice_final, aes(x=drivewheel,y = price))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x=enginelocation,y = price))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x=enginetype,y = price))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x=cylindernumber,y = price))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x=fuelsystem,y = price))+ geom_boxplot()+theme1,
+          align = "h") 
+
+#We find:
+#outliers in drivewheel, enginelocation type 'four', enginetype 
+#few outliers in cylindernumber 'four', fuelsystem
+
+
+#Boxplots for all numeric variables
+
+plot_grid(ggplot(carprice_final, aes(x="",y = wheelbase))+ geom_boxplot(), 
+          ggplot(carprice_final, aes(x="",y = carlength))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x="",y = carwidth))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x="",y = carheight))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x="",y = curbweight))+ geom_boxplot()+theme1,
+          align = "h") 
+
+#We find:
+#outliers in wheelbase, carlength and carwidth
+
+plot_grid(ggplot(carprice_final, aes(x="",y = enginesize))+ geom_boxplot(), 
+          ggplot(carprice_final, aes(x="",y = boreratio))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x="",y = stroke))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x="",y = compressionratio))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x="",y = horsepower))+ geom_boxplot()+theme1,
+          align = "h") 
+
+#We find:
+#outliers in enginesize, stroke, compressionratio and horsepower 
+
+plot_grid(ggplot(carprice_final, aes(x="",y = peakrpm))+ geom_boxplot(), 
+          ggplot(carprice_final, aes(x="",y = citympg))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x="",y = highwaympg))+ geom_boxplot()+theme1,
+          ggplot(carprice_final, aes(x="",y = price))+ geom_boxplot()+theme1,
+          align = "h") 
+
+#We find:
+#outliers in price 
+#few outliers in peakrpm, citympg, highwaympg
+
+#scatterplots for all numeric variables w.r.t price
+
+plot_grid(ggplot(carprice_final, aes(y=price,x = wheelbase))+ geom_point()+ geom_smooth(method = "lm", se = TRUE), 
+          ggplot(carprice_final, aes(y=price,x = carlength))+ geom_point()+ geom_smooth(method = "lm", se = TRUE)+theme1,
+          ggplot(carprice_final, aes(y=price,x = carwidth))+ geom_point()+ geom_smooth(method = "lm", se = TRUE)+theme1,
+          ggplot(carprice_final, aes(y=price,x = carheight))+ geom_point()+ geom_smooth(method = "lm", se = TRUE)+theme1,
+          ggplot(carprice_final, aes(y=price,x = curbweight))+ geom_point()+ geom_smooth(method = "lm", se = TRUE)+theme1,
+          align = "h") 
+
+#We find:
+#price increases with increase in wheelbase, carlength, carwidth and curbweight
+#increase in carheight has less impact on price, few outliers are also observed
+
+plot_grid(ggplot(carprice_final, aes(y=price,x = enginesize))+ geom_point()+ geom_smooth(method = "lm", se = TRUE), 
+          ggplot(carprice_final, aes(y=price,x = boreratio))+ geom_point()+ geom_smooth(method = "lm", se = TRUE)+theme1,
+          ggplot(carprice_final, aes(y=price,x = stroke))+ geom_point()+ geom_smooth(method = "lm", se = TRUE)+theme1,
+          ggplot(carprice_final, aes(y=price,x = compressionratio))+ geom_point()+ geom_smooth(method = "lm", se = TRUE)+theme1,
+          ggplot(carprice_final, aes(y=price,x = horsepower))+ geom_point()+ geom_smooth(method = "lm", se = TRUE)+theme1,
+          align = "h") 
+
+#We find:
+##price increases with increase in enginesize, boreratio(with few outliers), and horsepower
+#stroke and compressionratio(comparatively has less impact) remain almost steady   
+
+plot_grid(ggplot(carprice_final, aes(y=price,x = peakrpm))+ geom_point()+ geom_smooth(method = "lm", se = TRUE), 
+          ggplot(carprice_final, aes(y=price,x = citympg))+ geom_point()+ geom_smooth(method = "lm", se = TRUE)+theme1,
+          ggplot(carprice_final, aes(y=price,x = highwaympg))+ geom_point()+ geom_smooth(method = "lm", se = TRUE)+theme1,
+          align = "h") 
+
+#We find:
+#decrease in price when citympg and highwaympg increase
+#peakrpm remains almost steady with little amount of decrease in price with increase in peakrpm
+
+
+# Correlation between numeric variables
+
+corrplot(cor(carprice_final[,unlist(lapply(carprice_final, is.numeric))], use = "complete.obs"), type = "lower", method = "number")
+
+library(GGally)
+ggpairs(carprice_final[, unlist(lapply(carprice_final, is.numeric))])
+
+
+################################################################
 
 
 # creating dummy variables for factor attributes
@@ -592,6 +656,80 @@ summary(model_18) #Adjusted R-squared:  0.9488 - slight decrease
 vif(model_18)
 
 
+#After model_18, CarName.xisuzu has the highest p-value so we will remove it
+
+#Removing CarName.xisuzu      
+
+model_19 <- lm(formula = price ~ carlength + carwidth +  
+                 curbweight + enginesize + boreratio + compressionratio + 
+                 peakrpm + CarName.xbmw + CarName.xbuick + 
+                 CarName.xchevrolet + CarName.xdodge + CarName.xhonda + 
+                 CarName.xmazda + CarName.xmitsubishi + 
+                 CarName.xNissan + CarName.xpeugeot + CarName.xplymouth + 
+                 CarName.xrenault + CarName.xsubaru + CarName.xtoyota + 
+                 CarName.xvolkswagen + fueltype +  
+                 carbody.xhatchback + enginelocation + enginetype.xl + 
+                 enginetype.xohcv + enginetype.xrotor + cylindernumber.xfive,data = train)
+
+summary(model_19) #Adjusted R-squared:  0.9478 - slight decrease
+
+vif(model_19)
+
+#After model_19, CarName.xchevrolet has the highest p-value so we will remove it
+
+#Removing CarName.xchevrolet      
+
+model_20 <- lm(formula = price ~ carlength + carwidth +  
+                 curbweight + enginesize + boreratio + compressionratio + 
+                 peakrpm + CarName.xbmw + CarName.xbuick + 
+                  CarName.xdodge + CarName.xhonda + 
+                 CarName.xmazda + CarName.xmitsubishi + 
+                 CarName.xNissan + CarName.xpeugeot + CarName.xplymouth + 
+                 CarName.xrenault + CarName.xsubaru + CarName.xtoyota + 
+                 CarName.xvolkswagen + fueltype +  
+                 carbody.xhatchback + enginelocation + enginetype.xl + 
+                 enginetype.xohcv + enginetype.xrotor + cylindernumber.xfive,data = train)
+
+summary(model_20) #Adjusted R-squared:  0.9467 - slight decrease
+
+vif(model_20)
+
+
+
+#After model_20, enginetype.xl has the highest p-value so we will remove it
+
+#Removing enginetype.xl       
+
+model_21 <- lm(formula = price ~ carlength + carwidth +  
+                 curbweight + enginesize + boreratio + compressionratio + 
+                 peakrpm + CarName.xbmw + CarName.xbuick + 
+                 CarName.xdodge + CarName.xhonda + 
+                 CarName.xmazda + CarName.xmitsubishi + 
+                 CarName.xNissan + CarName.xpeugeot + CarName.xplymouth + 
+                 CarName.xrenault + CarName.xsubaru + CarName.xtoyota + 
+                 CarName.xvolkswagen + fueltype +  
+                 carbody.xhatchback + enginelocation +  
+                 enginetype.xohcv + enginetype.xrotor + cylindernumber.xfive,data = train)
+
+summary(model_21) #Adjusted R-squared:  0.9463 - slight decrease
+
+
+#After model_21, carbody.xhatchback has the highest p-value so we will remove it
+
+#Removing carbody.xhatchback       
+
+model_22 <- lm(formula = price ~ carlength + carwidth +  
+                 curbweight + enginesize + boreratio + compressionratio + 
+                 peakrpm + CarName.xbmw + CarName.xbuick + 
+                 CarName.xdodge + CarName.xhonda + 
+                 CarName.xmazda + CarName.xmitsubishi + 
+                 CarName.xNissan + CarName.xpeugeot + CarName.xplymouth + 
+                 CarName.xrenault + CarName.xsubaru + CarName.xtoyota + 
+                 CarName.xvolkswagen + fueltype +  
+                  enginelocation +  
+                 enginetype.xohcv + enginetype.xrotor + cylindernumber.xfive,data = train)
+
+summary(model_22) #Adjusted R-squared:  0.945 - slight decrease
 
 
 
@@ -604,27 +742,22 @@ vif(model_18)
 
 
 
+summary(model_12)
 
 
-
-
-
-
-
-
-#Best fit model choose is model_9 and the reasons are below,
+#Best fit model choose is model_12 and the reasons are below,
 
 #After testing all the above models by stepwise eliminating the variables with high vif and/or low significance
-#It was found that the model_9 would be a better fit because it has all the significant variables 
-#that have p-values less than 0.05. Also it has a high adjusted R-squared value of 0.9719
-#The subsequent models(model_10 to model_16) where more variables are eliminated based on low significance, 
+#It was found that the model_12 would be a better fit because it has all the significant variables 
+#that have p-values are less than 0.05. Also it has a high adjusted R-squared value of 0.9531
+#The subsequent models where more variables are eliminated based on low significance, 
 #the adjusted R-squared decreased considerably.
-#Though the previous models from model_1 to model_8, were having slightly high adjusted R-squared, 
+#Though the previous models , were having slightly high adjusted R-squared, 
 #but they were also having some variables with no significance.
 
 
 # predicting the results in test dataset
-Predict_1 <- predict(model_15,train[,-14])
+Predict_1 <- predict(model_12,train[,-14])
 train$test_price <- Predict_1
 
 # Now, we need to test the r square between actual and predicted sales. 
