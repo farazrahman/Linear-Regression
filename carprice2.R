@@ -92,6 +92,8 @@ plot_grid(ggplot(carprice_final, aes(x=symboling,y = price))+ geom_bar(stat = 'i
 #We find:
 #symbolic rating of '0' has more price
 #Brand name of the car does affects the price
+#Sedans have high price
+#standard aspiration has high price as compared to turbo
 
 plot_grid(ggplot(carprice_final, aes(x=drivewheel,y = price))+ geom_bar(stat = 'identity')+theme1,
           ggplot(carprice_final, aes(x=enginelocation,y = price))+ geom_bar(stat = 'identity')+theme1,
@@ -213,7 +215,7 @@ dummies<- data.frame(sapply(carprice_fact, function(x) data.frame(model.matrix(~
 #enginelocation- front-0, rear-1
 
 # Final dataset
-carprice_final<- cbind(CarPrice[,c(10:14,17,19:26)],dummies) 
+carprice_final<- cbind(carprice_numeric,dummies) 
 View(carprice_final) #205 obs. of  69 variables
 
 
@@ -758,9 +760,32 @@ summary(model_12)
 
 # predicting the results in test dataset
 Predict_1 <- predict(model_12,train[,-14])
-train$test_price <- Predict_1
+train$predict_price <- Predict_1
 
 # Now, we need to test the r square between actual and predicted sales. 
-r <- cor(train$price,train$test_price)
-rsquared <- cor(train$price,train$test_price)^2
+r <- cor(train$price,train$predict_price)
+rsquared <- cor(train$price,train$predict_price)^2
 rsquared
+
+#Calculate the error between predicted price and actual price
+
+error <- data.frame(train$price-train$predict_price)
+
+train <- cbind(CarPrice$car_ID, train, error)
+
+ggplot(train, aes(x = price, y = error)) + geom_point() + geom_smooth(method = "lm", se = TRUE)
+
+ggplot(train, aes(x = CarPrice$car_ID, y = error)) + geom_point() + geom_smooth(method = "lm", se = TRUE)
+
+
+#Plotting the actual and predicted price and see the overlapping
+
+
+ggplot(train, aes(x = CarPrice$car_ID)+ geom_point(aes(y = price))+ geom_point(aes(y=predicted_price)), color = "purple")
+
+ggplot(train)+
+  aes(x = CarPrice$car_ID)+
+  # raw data
+  geom_point(aes(y = price))+geom_line(aes(y = price))+
+  # fitted values
+  geom_point(aes(y=predict_price), color = "purple") + geom_line(aes(y=predict_price), color = "purple")
